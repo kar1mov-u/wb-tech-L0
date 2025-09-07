@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.24.7
 
 require (
+	github.com/go-chi/chi v1.5.5
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.13.0
