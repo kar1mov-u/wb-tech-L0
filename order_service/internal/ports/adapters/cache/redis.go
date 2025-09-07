@@ -19,3 +19,12 @@ func (c *OrderCacheRedis) Set(ctx context.Context, id string, order models.Order
 	}
 	return nil
 }
+
+func (c *OrderCacheRedis) Get(ctx context.Context, id string) (models.Order, bool, error) {
+	var order models.Order
+	err := c.client.Get(ctx, id).Scan(&order)
+	if err != nil {
+		return models.Order{}, false, err
+	}
+	return order, true, nil
+}

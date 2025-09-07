@@ -46,19 +46,19 @@ func (s *OrderService) GetOrder(ctx context.Context, id string) (models.Order, e
 	return order, nil
 }
 
-func (s *OrderService) FillCache(ctx context.Context, limit int) {
-	//get orders from the storage
-	orders, err := s.storage.GetLastOrders(ctx, limit)
-	if err != nil {
-		log.Printf("error on getting last orders: %v \n", err)
-		return
-	}
+// func (s *OrderService) FillCache(ctx context.Context, limit int) {
+// 	//get orders from the storage
+// 	orders, err := s.storage.GetLastOrders(ctx, limit)
+// 	if err != nil {
+// 		log.Printf("error on getting last orders: %v \n", err)
+// 		return
+// 	}
 
-	//save to the cache
-	for _, order := range orders {
-		err = s.cache.Set(ctx, order.OrderUID, order)
-		if err != nil {
-			log.Printf("error on setting to cache: %v \n", err)
-		}
-	}
-}
+// 	//save to the cache
+// 	for _, order := range orders {
+// 		err = s.cache.Set(ctx, order.OrderUID, order)
+// 		if err != nil {
+// 			log.Printf("error on setting to cache: %v \n", err)
+// 		}
+// 	}
+// }

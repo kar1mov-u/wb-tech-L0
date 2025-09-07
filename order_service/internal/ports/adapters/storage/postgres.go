@@ -81,7 +81,6 @@ func (s *OrderStoragePostgres) GetOrderByID(ctx context.Context, id string) (mod
 	defer rows.Close()
 
 	var order models.Order
-	// itemsMap := make(map[string][]models.Item)
 
 	for rows.Next() {
 		var (
@@ -100,9 +99,9 @@ func (s *OrderStoragePostgres) GetOrderByID(ctx context.Context, id string) (mod
 			&iChrtID, &iTrackNumber, &iPrice, &iRid, &iName, &iSale, &iSize, &iTotalPrice, &iNmID, &iBrand, &iStatus)
 
 		if err != nil {
-			return models.Order{}, fmt.Errorf("failed to scan row:%w", &err)
+			return models.Order{}, fmt.Errorf("failed to scan row:%w", err)
 		}
-		if orderUID == "" {
+		if order.OrderUID == "" {
 			order = models.Order{
 				OrderUID:          orderUID,
 				TrackNumber:       trackNumber,
@@ -152,7 +151,6 @@ func (s *OrderStoragePostgres) GetOrderByID(ctx context.Context, id string) (mod
 			Status:      iStatus,
 		}
 		order.Items = append(order.Items, item)
-
 	}
 
 	if err = rows.Err(); err != nil {
