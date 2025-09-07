@@ -12,6 +12,10 @@ type OrderCacheRedis struct {
 	client *redis.Client
 }
 
+func NewOrderCacheRedis(client *redis.Client) *OrderCacheRedis {
+	return &OrderCacheRedis{client: client}
+}
+
 func (c *OrderCacheRedis) Set(ctx context.Context, id string, order models.Order) error {
 	err := c.client.Set(ctx, id, order, time.Hour).Err()
 	if err != nil {

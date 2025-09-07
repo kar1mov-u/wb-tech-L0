@@ -16,6 +16,10 @@ func NewOrderService(storage ports.OrderStorage, cache ports.OrderCache) *OrderS
 	return &OrderService{storage: storage, cache: cache}
 }
 
+func (s *OrderService) SaveOrder(ctx context.Context, order models.Order) error {
+	return s.storage.SaveOrder(ctx, order)
+}
+
 func (s *OrderService) GetOrder(ctx context.Context, id string) (models.Order, error) {
 
 	var order models.Order

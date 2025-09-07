@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"order_service/internal/config"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -19,20 +20,19 @@ type Config struct {
 	MinConns int32  `yaml:"min_conn" env:"MIN_CONN" env-default:"5"`
 }
 
-func New(ctx context.Context, config Config) (*pgxpool.Pool, error) {
-	connstring := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable&pool_min_conns=%d&pool_max_conns=%d",
-		config.Username,
+func New(ctx context.Context, config config.PostgresConfig) (*pgxpool.Pool, error) {
+	connstring := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable&pool_min_conns=5&pool_max_conns=10",
+		config.User,
 		config.Password,
 		config.Host,
 		config.Port,
 		config.Database,
-		config.MinConns,
-		config.MaxConns,
 	)
 
 	conn, err := pgxpool.New(ctx, connstring)
 	if err != nil {
 		return conn, fmt.Errorf("unable to connect to the postgres:%v", err)
 	}
-	return conn, nil
+
+	return conn, conn.Ping(ctx)
 }

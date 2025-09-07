@@ -20,6 +20,8 @@ type PostgresConfig struct {
 	User     string
 	Password string
 	Database string
+	MaxConns int32 `yaml:"max_conn" env:"MAX_CONN" env-default:"10"`
+	MinConns int32 `yaml:"min_conn" env:"MIN_CONN" env-default:"5"`
 }
 
 type RedisConfig struct {
@@ -35,7 +37,7 @@ type RabbitMQConfig struct {
 }
 
 func LoadConfig() Config {
-	err := godotenv.Load()
+	err := godotenv.Load("../.env")
 	if err != nil {
 		log.Println("No .env file found")
 	}

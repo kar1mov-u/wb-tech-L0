@@ -1,5 +1,5 @@
 -- Orders (root)
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     order_uid           TEXT        PRIMARY KEY,
     track_number        TEXT        NOT NULL,
     entry               TEXT        NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE orders (
 );
 
 -- One-to-one: Delivery per order
-CREATE TABLE deliveries (
+CREATE TABLE IF NOT EXISTS deliveries (
     order_uid   TEXT    PRIMARY KEY
         REFERENCES orders(order_uid) ON DELETE CASCADE,
     name        TEXT    NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE deliveries (
 );
 
 -- One-to-one: Payment per order
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     order_uid       TEXT PRIMARY KEY
         REFERENCES orders(order_uid) ON DELETE CASCADE,
 
@@ -52,7 +52,7 @@ CREATE TABLE payments (
 );
 
 -- One-to-many: Items per order
-CREATE TABLE items (
+CREATE TABLE IF NOT EXISTS items (
     id              BIGSERIAL PRIMARY KEY,  -- surrogate key for convenience
     order_uid       TEXT    NOT NULL
         REFERENCES orders(order_uid) ON DELETE CASCADE,
@@ -76,13 +76,13 @@ CREATE TABLE items (
     CHECK (status >= 0)
 );
 
--- Indexes to speed up common lookups
-CREATE INDEX idx_orders_track_number   ON orders   (track_number);
-CREATE INDEX idx_orders_customer_id    ON orders   (customer_id);
-CREATE INDEX idx_orders_date_created   ON orders   (date_created);
+-- Indexes to speed up common lookups (with IF NOT EXISTS)
+CREATE INDEX IF NOT EXISTS idx_orders_track_number   ON orders   (track_number);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_id    ON orders   (customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_date_created   ON orders   (date_created);
 
-CREATE INDEX idx_items_order_uid       ON items    (order_uid);
-CREATE INDEX idx_items_track_number    ON items    (track_number);
+CREATE INDEX IF NOT EXISTS idx_items_order_uid       ON items    (order_uid);
+CREATE INDEX IF NOT EXISTS idx_items_track_number    ON items    (track_number);
 
 -- Optional: if (order_uid, chrt_id) should be unique per order, uncomment:
--- CREATE UNIQUE INDEX uq_items_order_chrt ON items(order_uid, chrt_id);
+-- CREATE UNIQUE INDEX IF NOT EXISTS uq_items_order_chrt ON items(order_uid, chrt_id);
