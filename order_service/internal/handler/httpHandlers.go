@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"order_service/internal/models"
+	"order_service/internal/ports/adapters/storage"
 	"order_service/internal/service"
 
 	"github.com/go-chi/chi"
@@ -54,11 +55,15 @@ func (h *OrderServiceHandler) GetOrder(w http.ResponseWriter, r *http.Request) e
 
 	order, err := h.service.GetOrder(r.Context(), id)
 	if err != nil {
-		return HttpError{err: err, Code: http.StatusInternalServerError, msg: "falied to retrieve order"}
+		if errors.Is(err, storage.ErrNotFound) {
+			return HttpError{err: err, Code: http.StatusNotFound, msg: "order not found"}
+
+		}
+		return HttpError{err: err, Code: http.StatusInternalServerError, msg: "falied to retrieve order" + err.Error()}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(order); err != nil {
-		return HttpError{err: err, Code: http.StatusInternalServerError, msg: "falied to write JSON"}
+		return HttpError{err: err, Code: http.StatusInternalServerError, msg: "falied to write JSON" + err.Error()}
 	}
 	return nil
 }

@@ -27,10 +27,13 @@ func (s *OrderService) GetOrder(ctx context.Context, id string) (models.Order, e
 	//first try to get from the cache
 	order, ok, err := s.cache.Get(ctx, id)
 	if ok {
+		log.Printf("[orderService][GetOrder] cache hit order_id=%s", id)
 		return order, nil
 	}
 	if err != nil {
-		log.Printf("error on getting from cache: %v", err)
+		log.Printf("[orderService][GetOrder] cache lookup failed order_id=%s: %v", id, err)
+	} else {
+		log.Printf("[orderService][GetOrder] cache miss order_id=%s", id)
 	}
 
 	//try to get from the storage
@@ -41,9 +44,9 @@ func (s *OrderService) GetOrder(ctx context.Context, id string) (models.Order, e
 
 	//save to the cache for later use
 	go func() {
-		err = s.cache.Set(ctx, id, order)
+		err = s.cache.Set(context.TODO(), id, order)
 		if err != nil {
-			log.Printf("error on setting to cachke :%v", err)
+			log.Printf("[orderService][GetOrder] cache set failed order_id=%s: %v", id, err)
 		}
 	}()
 

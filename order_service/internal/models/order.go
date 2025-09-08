@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Order struct {
 	OrderUID          string    `json:"order_uid"`
@@ -54,4 +57,12 @@ type Item struct {
 	NmID        int    `json:"nm_id"`
 	Brand       string `json:"brand"`
 	Status      int    `json:"status"`
+}
+
+func (o Order) MarshalBinary() ([]byte, error) {
+	return json.Marshal(o)
+}
+
+func (o *Order) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, o)
 }

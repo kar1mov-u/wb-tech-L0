@@ -2,9 +2,9 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"order_service/internal/models"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -62,102 +62,72 @@ func (s *OrderStoragePostgres) SaveOrder(ctx context.Context, order models.Order
 	return nil
 }
 
-func (s *OrderStoragePostgres) GetOrderByID(ctx context.Context, id string) (models.Order, error) {
-	sql := `SELECT 
-        o.order_uid, o.track_number, o.entry, o.locale, o.internal_signature, o.customer_id, o.delivery_service, o.shardkey, o.sm_id, o.date_created, o.oof_shard,
-        d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
-        p.transaction, p.request_id, p.currency, p.provider, p.amount, p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee,
-        i.chrt_id, i.track_number AS item_track_number, i.price, i.rid, i.name AS item_name, i.sale, i.size, i.total_price, i.nm_id, i.brand, i.status
-    FROM orders o
-    LEFT JOIN deliveries d ON o.order_uid = d.order_uid
-    LEFT JOIN payments p ON o.order_uid = p.order_uid
-    LEFT JOIN items i ON o.order_uid = i.order_uid
-    WHERE o.order_uid = $1`
+var ErrNotFound = errors.New("order not found")
 
-	rows, err := s.pool.Query(ctx, sql, id)
+func (s *OrderStoragePostgres) GetOrderByID(ctx context.Context, id string) (models.Order, error) {
+	// 1) Fetch header (single row)
+	const headerSQL = `
+        SELECT 
+            o.order_uid, o.track_number, o.entry, o.locale, o.internal_signature, 
+            o.customer_id, o.delivery_service, o.shardkey, o.sm_id, o.date_created, o.oof_shard,
+            d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+            p.transaction, p.request_id, p.currency, p.provider, p.amount, p.payment_dt, p.bank, 
+            p.delivery_cost, p.goods_total, p.custom_fee
+        FROM orders o
+        LEFT JOIN deliveries d ON o.order_uid = d.order_uid
+        LEFT JOIN payments   p ON o.order_uid = p.order_uid
+        WHERE o.order_uid = $1
+    `
+	var (
+		o models.Order
+		d models.Delivery
+		p models.Payment
+	)
+	// Scan, handling NULLs: if any LEFT JOIN columns can be NULL, use sql.NullString/NullInt64 or COALESCE(...) in SQL.
+	err := s.pool.QueryRow(ctx, headerSQL, id).Scan(
+		&o.OrderUID, &o.TrackNumber, &o.Entry, &o.Locale, &o.InternalSignature,
+		&o.CustomerID, &o.DeliveryService, &o.ShardKey, &o.SmID, &o.DateCreated, &o.OofShard,
+		&d.Name, &d.Phone, &d.Zip, &d.City, &d.Address, &d.Region, &d.Email,
+		&p.Transaction, &p.RequestID, &p.Currency, &p.Provider, &p.Amount, &p.PaymentDT, &p.Bank,
+		&p.DeliveryCost, &p.GoodsTotal, &p.CustomFee,
+	)
 	if err != nil {
-		return models.Order{}, fmt.Errorf("failed to query order:%w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.Order{}, ErrNotFound
+		}
+		return models.Order{}, fmt.Errorf("get order header: %w", err)
+	}
+	o.Delivery = d
+	o.Payment = p
+
+	// 2) Fetch items (0..n rows)
+	const itemsSQL = `
+        SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status
+        FROM items
+        WHERE order_uid = $1
+        ORDER BY chrt_id
+    `
+	rows, err := s.pool.Query(ctx, itemsSQL, id)
+	if err != nil {
+		return models.Order{}, fmt.Errorf("get order items: %w", err)
 	}
 	defer rows.Close()
 
-	var order models.Order
-
 	for rows.Next() {
-		var (
-			orderUID, trackNumber, entry, locale, internalSignature, customerID, deliveryService, shardkey, oofShard   string
-			dName, dPhone, dZip, dCity, dAddress, dRegion, dEmail                                                      string
-			pTransaction, pRequestID, pCurrency, pProvider, pBank                                                      string
-			pPaymentDT                                                                                                 int64
-			iTrackNumber, iRid, iName, iBrand, iSize                                                                   string
-			iPrice, iSale, iTotalPrice, iNmID, iStatus, smID, pAmount, pDeliveryCost, pGoodsTotal, pCustomFee, iChrtID int
-			dateCreated                                                                                                time.Time
-		)
-
-		err := rows.Scan(&orderUID, &trackNumber, &entry, &locale, &internalSignature, &customerID, &deliveryService, &shardkey, &smID, &dateCreated, &oofShard,
-			&dName, &dPhone, &dZip, &dCity, &dAddress, &dRegion, &dEmail,
-			&pTransaction, &pRequestID, &pCurrency, &pProvider, &pAmount, &pPaymentDT, &pBank, &pDeliveryCost, &pGoodsTotal, &pCustomFee,
-			&iChrtID, &iTrackNumber, &iPrice, &iRid, &iName, &iSale, &iSize, &iTotalPrice, &iNmID, &iBrand, &iStatus)
-
-		if err != nil {
-			return models.Order{}, fmt.Errorf("failed to scan row:%w", err)
+		var it models.Item
+		if err := rows.Scan(
+			&it.ChrtID, &it.TrackNumber, &it.Price, &it.Rid, &it.Name, &it.Sale, &it.Size,
+			&it.TotalPrice, &it.NmID, &it.Brand, &it.Status,
+		); err != nil {
+			return models.Order{}, fmt.Errorf("scan item: %w", err)
 		}
-		if order.OrderUID == "" {
-			order = models.Order{
-				OrderUID:          orderUID,
-				TrackNumber:       trackNumber,
-				Entry:             entry,
-				Locale:            locale,
-				InternalSignature: internalSignature,
-				CustomerID:        customerID,
-				DeliveryService:   deliveryService,
-				ShardKey:          shardkey,
-				SmID:              smID,
-				DateCreated:       dateCreated,
-				OofShard:          oofShard,
-				Delivery: models.Delivery{
-					Name:    dName,
-					Phone:   dPhone,
-					Zip:     dZip,
-					City:    dCity,
-					Address: dAddress,
-					Region:  dRegion,
-					Email:   dEmail,
-				},
-				Payment: models.Payment{
-					Transaction:  pTransaction,
-					RequestID:    pRequestID,
-					Currency:     pCurrency,
-					Provider:     pProvider,
-					Amount:       pAmount,
-					PaymentDT:    pPaymentDT,
-					Bank:         pBank,
-					DeliveryCost: pDeliveryCost,
-					GoodsTotal:   pGoodsTotal,
-					CustomFee:    pCustomFee,
-				},
-			}
-		}
-		item := models.Item{
-			ChrtID:      iChrtID,
-			TrackNumber: iTrackNumber,
-			Price:       iPrice,
-			Rid:         iRid,
-			Name:        iName,
-			Sale:        iSale,
-			Size:        iSize,
-			TotalPrice:  iTotalPrice,
-			NmID:        iNmID,
-			Brand:       iBrand,
-			Status:      iStatus,
-		}
-		order.Items = append(order.Items, item)
+		o.Items = append(o.Items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return models.Order{}, fmt.Errorf("items rows: %w", err)
 	}
 
-	if err = rows.Err(); err != nil {
-		return models.Order{}, fmt.Errorf("rows error: %w", err)
-	}
-
-	return order, nil
+	return o, nil
 }
 
 // func (s *OrderStoragePostgres) GetLastOrders(ctx context.Context, limit int) ([]models.Order, error) {
