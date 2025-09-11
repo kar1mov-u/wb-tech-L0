@@ -18,6 +18,10 @@ type OrderCache interface {
 	// GetKeysAmount() int
 }
 
-type Reciever interface {
-	Consume(ctx context.Context)
+type OrderReciever[MessageType any] interface {
+	Consume(ctx context.Context) (models.Order, MessageType, error)
+
+	OnSuccess(ctx context.Context, msg MessageType) error
+
+	OnFail(ctx context.Context, shouldRetry bool, msg MessageType) error
 }

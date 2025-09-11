@@ -11,7 +11,7 @@ import (
 type Config struct {
 	Postgres PostgresConfig
 	Redis    RedisConfig
-	RabbitMQ RabbitMQConfig
+	Kafka    KafkaConfig
 }
 
 type PostgresConfig struct {
@@ -28,12 +28,12 @@ type RedisConfig struct {
 	ConnString string
 }
 
-type RabbitMQConfig struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	VHost    string
+type KafkaConfig struct {
+	Host    string
+	Port    int
+	GroupID string
+	Topic   string
+	Broker  string
 }
 
 func LoadConfig() Config {
@@ -53,12 +53,12 @@ func LoadConfig() Config {
 		Redis: RedisConfig{
 			ConnString: getEnv("REDIS_CONN_STRING", "redis://localhost:6379/0"),
 		},
-		RabbitMQ: RabbitMQConfig{
-			Host:     getEnv("RABBITMQ_HOST", "localhost"),
-			Port:     getEnvAsInt("RABBITMQ_PORT", 5672),
-			User:     getEnv("RABBITMQ_USER", "guest"),
-			Password: getEnv("RABBITMQ_PASSWORD", "guest"),
-			VHost:    getEnv("RABBITMQ_VHOST", "/"),
+		Kafka: KafkaConfig{
+			Host:    getEnv("RABBITMQ_HOST", "localhost"),
+			Port:    getEnvAsInt("RABBITMQ_PORT", 5672),
+			GroupID: getEnv("KAFKA_GROUP_ID", "group1"),
+			Topic:   getEnv("KAFKA_TOPIC", "orders"),
+			Broker:  getEnv("KAFKA_BROKER", "localhost:9092"),
 		},
 	}
 }
